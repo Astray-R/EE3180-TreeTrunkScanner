@@ -4,14 +4,14 @@
 #include <ESP32Servo.h>
 #include <math.h>
 
-// Pin Definitions
-#define SlidestepPin 18  // STEP pin for the slider motor
-#define SlidedirPin 19   // DIR pin for the slider motor
-#define RotstepPin 4     // STEP pin for the rotator motor
-#define RotdirPin 5      // DIR pin for the rotator motor
-#define RESET_BUTTON_PIN 15  // Reset button pin
-#define CLK 34           // Encoder CLK pin (S1? of Rotary Encoder, whacked both of them into any pin)
-#define DT 35            // Encoder DT pin (S2? of Rotary Encoder)
+// Pinout for ESP32 Dev Module
+#define SlidestepPin 18       // STEP pin for the slider motor
+#define SlidedirPin 19        // DIR pin for the slider motor
+#define RotstepPin 4          // STEP pin for the rotator motor
+#define RotdirPin 5           // DIR pin for the rotator motor
+#define RESET_BUTTON_PIN 15   // Reset button pin
+#define CLK 34                // Encoder CLK pin (S1? of Rotary Encoder, whacked both of them into any pin)
+#define DT 35                 // Encoder DT pin (S2? of Rotary Encoder)
 #define SlideswitchPin 26
 #define RotswitchPin 25
 
@@ -20,37 +20,31 @@ VL53L1X sensor;
 
 // Servo motor for vertical movement
 Servo verticalServo;
-const int verticalPin = 13; // Pin for vertical servo
+const int verticalPin = 13;   // Pin for vertical servo
 
 // Motor movement step size and delay (timing control)
-const int stepDelay = 2000;  // Stepper delay for speed control
-const int maxdist = 400;     // Maximum distance for the movement in steps
-const int hOffset = 80;      // Horizontal offset for vertical scan
-const int vOffset = 65;      // Vertical offset for scan range
-
-// Platform Movement Variables
-int currentdist = 0;
-volatile int position = 0;  // Stores the encoder position
+const int stepDelay = 2000;   // Stepper delay for speed control
+const int maxdist = 400;      // Maximum distance for the movement in steps
+const int hOffset = 80;       // Horizontal offset for vertical scan
+const int vOffset = 65;       // Vertical offset for scan range
 
 // Initialize ToF sensor
-bool initializeSensor()
-{
+bool initializeSensor() {
   Wire.begin();
   if (!sensor.init()) {
     Serial.println("ERROR: VL53L1X failed to initialize.");
     return false;
   }
-  sensor.setDistanceMode(VL53L1X::Medium);
-  sensor.setMeasurementTimingBudget(20000);
-  sensor.startContinuous(20);
+  sensor.setDistanceMode(VL53L1X::Medium);  // up to 76cm in strong ambient light, 290cm in the dark
+  sensor.setMeasurementTimingBudget(15000); // microseconds, duration of each measurement
+  sensor.startContinuous(15);               // milliseconds between each measurement start
   delay(100);
   return true;
 }
 
 // Move the slider (platform forward/backward)
-void moveSlide(int steps, bool direction)
-{
-  digitalWrite(SlidedirPin, direction ? HIGH : LOW);
+void moveSlide(int steps) {
+  digitalWrite(SlidedirPin HIGH);
   for (int i = 0; i < steps; i++) {
     digitalWrite(SlidestepPin, HIGH);
     delayMicroseconds(stepDelay);
@@ -60,9 +54,8 @@ void moveSlide(int steps, bool direction)
 }
 
 // Move the lazy susan (rotation)
-void moveRotate(int steps, bool direction)
-{
-  digitalWrite(RotdirPin, direction ? HIGH : LOW);
+void moveRotate(int steps) {
+  digitalWrite(RotdirPin HIGH);
   for (int i = 0; i < steps; i++) {
     digitalWrite(RotstepPin, HIGH);
     delayMicroseconds(stepDelay);
@@ -72,32 +65,40 @@ void moveRotate(int steps, bool direction)
 }
 
 // Reset system
-void resetSystem()
-{
+void resetSystem() {
   Serial.println("ESP32 RESETTING...");
   ESP.restart();
 }
 
-// Home the platform
-void homePlatform()
-{
+// Home the platform by moving back until it hits the Slide Switch
+void homePlatform() {
   digitalWrite(SlidedirPin, LOW);
   while (digitalRead(SlideswitchPin) == LOW) {
-    moveSlide(150, false);  // Move backward until limit switch is pressed
+    for (int i = 0; i < 150; i++) {
+      digitalWrite(SlidestepPin, HIGH);
+      delayMicroseconds(2000);
+      digitalWrite(SlidestepPin, LOW);
+      delayMicroseconds(2000);
+    }
+    Serial.println("moving platform back!");
   }
 }
 
-// Home the rotation
-void homeRotation()
-{
+// Home the rotation by rotating back until it hits the Rotation Switch
+void homeRotation() {
   digitalWrite(RotdirPin, LOW);
   while (digitalRead(RotswitchPin) == LOW) {
-    moveRotate(50, false);  // Move backward to home position
+    for (int i = 0; i < 50; i++) {
+      digitalWrite(RotstepPin, HIGH);
+      delayMicroseconds(1000);
+      digitalWrite(RotstepPin, LOW);
+      delayMicroseconds(1000);
+    }
+    Serial.println("moving rotation back!");
   }
 }
 
-void setup()
-{
+void setup() {
   Serial.begin(9600);
 
   // Set pin modes
@@ -116,52 +117,65 @@ void setup()
 
   homePlatform();  // Home the platform
   homeRotation();  // Home the rotation motor
+  moveRotate(120); // Rotate to starting angle
 
   Serial.println("READY");
 }
 
-void loop()
-{
-  int direction = 1;  // Variable to alternate direction of rotation
+void loop() {
+  int direction = 1;  // Variable to alternate direction of rotation, 1 is moving away from starting limit switch
+
+  float x,y,z; // 3D space coordinates for raw data
+  int verticalAngle; // angle of TOF sensor with respect to horizontal plane
   
-  // Iterate through vertical angles (to scan tree surface)
-  for (int verticalAngle = -25; verticalAngle <= 5; verticalAngle++) {
-    verticalServo.write(verticalAngle + vOffset);
-    delay(10);  // Allow the servo to reach the position
-    
-    // Iterate through rotation angles for Lazy Susan
-    for (int rotationStep = 45; rotationStep <= 135; rotationStep += 2.25) {
-      // Move the Lazy Susan (rotator)
-      moveRotate(1, direction > 0);  // Move one step in the set direction
-      
-      // Collect distance data from the sensor
-      while (!sensor.dataReady()) {
+  // one step = one degree of rotation
+  int totalStep = 31; // 31 steps total: 15 steps to the left, one center, 15 steps to the right
+
+  // iterate through platform steps
+  for (int platformStep = 0; platformStep < totalStep; platformStep++) {
+    Serial.println("Current Step: " + platformStep);
+
+    moveRotate(4);  // rotate lazy susan by one step
+    moveSlide(163); // move slider by one step
+    delay(100);
+
+    // For each step, rotate sensor vertically from bottom to top to scan tree trunk surface
+    int minVerticalAngle = -25; // angle in degrees
+    int maxVerticalAngle = 25;  
+    for (verticalAngle = minVerticalAngle; verticalAngle <= maxVerticalAngle; verticalAngle++) {
+      verticalServo.write(-verticalAngle + vOffset); // move motor to position, negative due to motor positioning
+      delay(10); // let the motor cook to completion
+
+      while (!sensor.dataReady()) { // checks if sensor is NOT ready
         Serial.println("Sensor not responding. Reinitializing...");
         initializeSensor();
       }
-      
-      int distance = sensor.read();
-      if (distance > 0 && distance < 1000 && !sensor.timeoutOccurred()) {
-        // Calculate 3D coordinates based on angle and distance
-        float hRad = rotationStep * PI / 180.0;
-        float vRad = (verticalAngle) * PI / 180.0;
-        float x = distance * cos(vRad) * cos(hRad); 
-        float y = distance * cos(vRad) * sin(hRad); 
-        float z = distance * sin(vRad); 
+    }
+    
+    int distance = sensor.read();
+    int maxTOFDistance = 2000; // in front of TOF sensor in millimeters (mm)
+    if (distance > 0 && distance < maxTOFDistance && !sensor.timeoutOccurred()) {
+      // Calculate 3D coordinates based on angle and distance
+      float hRad = (platformStep + 75) * PI / 180.0; // +75 degrees (HW: EXPLAIN WHY)
+      float vRad = (verticalAngle) * PI / 180.0;
 
-        // Print 3D point data
-        Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
-      }
+      // spherical coordinates (distance, hRad, vRad) -> cartesian coordinates (x,y,z)
+      x = distance * cos(vRad) * cos(hRad)+ 26 * platformStep; //increase 26mm every stop
+      y = distance * cos(vRad) * sin(hRad); 
+      z = distance * sin(vRad); 
 
-      // Move the platform forward by one step after each rotation
-      moveSlide(1, true);  // Move platform forward one step
-      delay(100);
+      // Print 3D point data
+      Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
     }
 
-    direction *= -1;  // Alternate rotation direction after each pass
+    delay(100);
   }
+  direction *= -1;  // Alternate rotation direction after each pass
 
   Serial.println("SCAN_DONE");
-  Serial.flush();  // Ensure data is flushed for Python reading
-  delay(1000);  // Short delay before the next scan
+  Serial.flush();   // Ensure data is flushed for Python reading
+  homePlatform();   // Home the platform
+  homeRotation();   // Home the rotation motor
+  moveRotate(110);  // Rotate to Starting Angle
+  delay(1000);      // Short delay before the next scan
 }
