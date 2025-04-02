@@ -44,7 +44,7 @@ bool initializeSensor() {
 
 // Move the slider (platform forward/backward)
 void moveSlide(int steps) {
-  digitalWrite(SlidedirPin HIGH);
+  digitalWrite(SlidedirPin, HIGH);
   for (int i = 0; i < steps; i++) {
     digitalWrite(SlidestepPin, HIGH);
     delayMicroseconds(stepDelay);
@@ -55,7 +55,7 @@ void moveSlide(int steps) {
 
 // Move the lazy susan (rotation)
 void moveRotate(int steps) {
-  digitalWrite(RotdirPin HIGH);
+  digitalWrite(RotdirPin, HIGH);
   for (int i = 0; i < steps; i++) {
     digitalWrite(RotstepPin, HIGH);
     delayMicroseconds(stepDelay);
@@ -150,24 +150,24 @@ void loop() {
         Serial.println("Sensor not responding. Reinitializing...");
         initializeSensor();
       }
-    }
+      
+      int distance = sensor.read();
     
-    int distance = sensor.read();
-    int maxTOFDistance = 2000; // in front of TOF sensor in millimeters (mm)
-    if (distance > 0 && distance < maxTOFDistance && !sensor.timeoutOccurred()) {
-      // Calculate 3D coordinates based on angle and distance
-      float hRad = (platformStep + 75) * PI / 180.0; // +75 degrees (HW: EXPLAIN WHY)
-      float vRad = (verticalAngle) * PI / 180.0;
+      int maxTOFDistance = 2000; // in front of TOF sensor in millimeters (mm)
+      if (distance > 0 && distance < maxTOFDistance && !sensor.timeoutOccurred()) {
+        // Calculate 3D coordinates based on angle and distance
+        float hRad = (platformStep + 75) * PI / 180.0; // +75 degrees (HW: EXPLAIN WHY)
+        float vRad = (verticalAngle) * PI / 180.0;
 
-      // spherical coordinates (distance, hRad, vRad) -> cartesian coordinates (x,y,z)
-      x = distance * cos(vRad) * cos(hRad)+ 26 * platformStep; //increase 26mm every stop
-      y = distance * cos(vRad) * sin(hRad); 
-      z = distance * sin(vRad); 
+        // spherical coordinates (distance, hRad, vRad) -> cartesian coordinates (x,y,z)
+        x = distance * cos(vRad) * cos(hRad)+ 26 * platformStep; //increase 26mm every stop
+        y = distance * cos(vRad) * sin(hRad); 
+        z = distance * sin(vRad); 
 
-      // Print 3D point data
-      Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
+        // Print 3D point data
+        Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
+      }
     }
-
     delay(100);
   }
   direction *= -1;  // Alternate rotation direction after each pass
