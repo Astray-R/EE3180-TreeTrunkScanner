@@ -140,8 +140,8 @@ void loop() {
     delay(100);
 
     // For each step, rotate sensor vertically from bottom to top to scan tree trunk surface
-    int minVerticalAngle = -25; // angle in degrees
-    int maxVerticalAngle = 25;  
+    int minVerticalAngle = -35; // angle in degrees
+    int maxVerticalAngle = 35;  
     for (verticalAngle = minVerticalAngle; verticalAngle <= maxVerticalAngle; verticalAngle++) {
       verticalServo.write(-verticalAngle + vOffset); // move motor to position, negative due to motor positioning
       delay(10); // let the motor cook to completion
@@ -150,7 +150,7 @@ void loop() {
         Serial.println("Sensor not responding. Reinitializing...");
         initializeSensor();
       }
-      
+
       int distance = sensor.read();
     
       int maxTOFDistance = 2000; // in front of TOF sensor in millimeters (mm)
