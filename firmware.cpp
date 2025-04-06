@@ -263,15 +263,21 @@ void loop() {
         z = distance * sin(vRad);
 
         // Print 3D point data
-        Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
+        char pointStr[32]; // Buffer for the combined string
+        sprintf(pointStr, "%.2f,%.2f,%.2f", x, y, z);
+        Serial.printf(pointStr);
+        Serial.printf("\n");
+        client.publish("Tree", pointStr);
+
+        // Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
 
         // char xStr[10], yStr[10], zStr[10];
         // dtostrf(x, 1, 2, xStr);
         // dtostrf(y, 1, 2, yStr);
         // dtostrf(z, 1, 2, zStr);
-        // client.publish("Tree/x", xStr);
-        // client.publish("Tree/y", yStr);
-        // client.publish("Tree/z", zStr);
+        // client.publish("Tree", xStr);
+        // client.publish("Tree", yStr);
+        // client.publish("Tree", zStr);
       }
     }
     delay(100);
