@@ -240,9 +240,6 @@ void loop() {
     for (verticalAngle = minVerticalAngle; verticalAngle <= maxVerticalAngle; verticalAngle++) {
       verticalServo.write(-verticalAngle + vOffset); // move motor to position, negative due to motor positioning
       
-      // Serial.print("verticalAngle: ");
-      // Serial.println(verticalAngle);
-      
       delay(10); // let the motor cook to completion
 
       while (!sensor.dataReady()) { // checks if sensor is NOT ready
