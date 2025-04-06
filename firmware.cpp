@@ -254,6 +254,12 @@ void loop() {
       }
     }
     delay(100);
+
+    if (platformStep == 0  platformStep == 15  platformStep == 30) {
+      Serial.println("Triggering Pi capture!");
+      client.publish("Tree", "capture");
+      delay(100);  // wait for Pi to capture
+    }
   }
   direction *= -1;  // Alternate rotation direction after each pass
 
