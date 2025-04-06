@@ -112,42 +112,11 @@ const char* password = "donttellu";
 const char* mqtt_server = "10.66.42.18"; // MQTT BROKER IP ADDRESS
 
 // Not sure what this does yet, will document later
-WifiClient espClient;
+WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
 char msg[50];
 int value = 0;
-
-void setup() {
-  Serial.begin(9600);
-
-  // Set pin modes
-  pinMode(SlidedirPin, OUTPUT);
-  pinMode(SlidestepPin, OUTPUT);
-  pinMode(RotdirPin, OUTPUT);
-  pinMode(RotstepPin, OUTPUT);
-  pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
-  pinMode(SlideswitchPin, INPUT_PULLUP);
-  pinMode(RotswitchPin, INPUT_PULLUP);
-
-  verticalServo.attach(verticalPin);  // Attach servo for vertical movement
-
-  // Initialize ToF sensor
-  initializeSensor();
-
-  homePlatform();  // Home the platform
-  homeRotation();  // Home the rotation motor
-  moveRotate(120); // Rotate to starting angle
-
-  // Initialize Wifi for MQTT
-  setup_wifi();
-  client.setServer(mqtt_server, 1883);
-  client.setCallback(callback);
-
-  Serial.println("READY");
-}
-
-// copied over from https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
 
 void setup_wifi() {
   delay(10);
@@ -180,6 +149,7 @@ void callback(char* topic, byte* message, unsigned int length) {
     messageTemp += (char)message[i];
   }
   Serial.println();
+}
 
 void reconnect() {
   // Loop until we're reconnected
@@ -199,6 +169,37 @@ void reconnect() {
   }
 }
 
+void setup() {
+  Serial.begin(9600);
+
+  // Set pin modes
+  pinMode(SlidedirPin, OUTPUT);
+  pinMode(SlidestepPin, OUTPUT);
+  pinMode(RotdirPin, OUTPUT);
+  pinMode(RotstepPin, OUTPUT);
+  pinMode(RESET_BUTTON_PIN, INPUT_PULLUP);
+  pinMode(SlideswitchPin, INPUT_PULLUP);
+  pinMode(RotswitchPin, INPUT_PULLUP);
+
+  verticalServo.attach(verticalPin);  // Attach servo for vertical movement
+
+  // Initialize ToF sensor
+  initializeSensor();
+
+  homePlatform();  // Home the platform
+  homeRotation();  // Home the rotation motor
+  moveRotate(120); // Rotate to starting angle
+
+  // Initialize Wifi for MQTT
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+
+  Serial.println("READY");
+}
+
+// copied over from https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
+
 void loop() {
   if (!client.connected()) {
     reconnect();
@@ -215,7 +216,8 @@ void loop() {
 
   // iterate through platform steps
   for (int platformStep = 0; platformStep < totalStep; platformStep++) {
-    Serial.println("Current Step: " + platformStep);
+    Serial.print("Current Step: ");
+    Serial.println(platformStep);
 
     moveRotate(4);  // rotate lazy susan by one step
     moveSlide(163); // move slider by one step
@@ -244,18 +246,23 @@ void loop() {
         // spherical coordinates (distance, hRad, vRad) -> cartesian coordinates (x,y,z)
         x = distance * cos(vRad) * cos(hRad)+ 26 * platformStep; //increase 26mm every stop
         y = distance * cos(vRad) * sin(hRad); 
-        z = distance * sin(vRad); 
+        z = distance * sin(vRad);
 
         // Print 3D point data
-        Serial.println("%.2f,%.2f,%.2f", x, y, z);
-        client.publish("Tree", x);
-        client.publish("Tree", y);
-        client.publish("Tree", z);
+        Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
+
+        char xStr[10], yStr[10], zStr[10];
+        dtostrf(x, 1, 2, xStr);
+        dtostrf(y, 1, 2, yStr);
+        dtostrf(z, 1, 2, zStr);
+        client.publish("Tree/x", xStr);
+        client.publish("Tree/y", yStr);
+        client.publish("Tree/z", zStr);
       }
     }
     delay(100);
 
-    if (platformStep == 0  platformStep == 15  platformStep == 30) {
+    if (platformStep == 0 || platformStep == 15 || platformStep == 30) {
       Serial.println("Triggering Pi capture!");
       client.publish("Tree", "capture");
       delay(100);  // wait for Pi to capture
