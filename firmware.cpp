@@ -1,8 +1,16 @@
 #include <Arduino.h>
+#include <math.h>
+
+// Header for VL53L1X ToF Sensor via I2C
 #include <Wire.h>
 #include <VL53L1X.h>
+
+// Header for Servo Motors
 #include <ESP32Servo.h>
-#include <math.h>
+
+// Header for MQTT
+#include <WiFi.h>
+#include <PubSubClient.h>
 
 // Pinout for ESP32 Dev Module
 #define SlidestepPin 18       // STEP pin for the slider motor
@@ -98,6 +106,70 @@ void homeRotation() {
   }
 }
 
+// Wi-Fi credentials for ToF ESP32
+const char* ssid = "Maximilian's Galaxy S22+";
+const char* password = "donttellu";
+const char* mqtt_server = "10.66.42.18"; // MQTT BROKER IP ADDRESS
+
+// Not sure what this does yet, will document later
+WiFiClient espClient;
+PubSubClient client(espClient);
+long lastMsg = 0;
+char msg[50];
+int value = 0;
+
+void setup_wifi() {
+  delay(10);
+
+  // Start by connecting to a Wi-Fi Network
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.print(ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void callback(char* topic, byte* message, unsigned int length) {
+  Serial.print("Message arrived on topic: ");
+  Serial.print(topic);
+  Serial.print(". Message: ");
+  String messageTemp;
+  
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)message[i]);
+    messageTemp += (char)message[i];
+  }
+  Serial.println();
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("ee014")) { // REPLACE WITH CLIENT NAME
+      Serial.println("connected");
+      // Subscribe
+      client.subscribe("Tree");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 3 seconds");
+      delay(3000); // Wait 3 seconds before retrying
+    }
+  }
+}
+
 void setup() {
   Serial.begin(9600);
 
@@ -117,12 +189,28 @@ void setup() {
 
   homePlatform();  // Home the platform
   homeRotation();  // Home the rotation motor
-  moveRotate(120); // Rotate to starting angle
+
+  // Rotate to starting angle
+  // moveRotate(280); // Rotate to -15 degrees for long distance mode
+  moveRotate(80); // Rotate to -58 degree) for short distance mode
+
+
+  // Initialize Wifi for MQTT
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
 
   Serial.println("READY");
 }
 
+// copied over from https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
+
 void loop() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  
   int direction = 1;  // Variable to alternate direction of rotation, 1 is moving away from starting limit switch
 
   float x,y,z; // 3D space coordinates for raw data
@@ -133,17 +221,25 @@ void loop() {
 
   // iterate through platform steps
   for (int platformStep = 0; platformStep < totalStep; platformStep++) {
-    Serial.println("Current Step: " + platformStep);
+    Serial.print("Current Step: ");
+    Serial.println(platformStep);
 
-    moveRotate(4);  // rotate lazy susan by one step
+    // rotate lazy susan by one step
+    moveRotate(18);  // short distance
+    // moveRotate(5);  // long distance
     moveSlide(163); // move slider by one step
-    delay(100);
 
     // For each step, rotate sensor vertically from bottom to top to scan tree trunk surface
-    int minVerticalAngle = -35; // angle in degrees
+    
+    // angle in degrees
+    int minVerticalAngle = -35; // short distance
     int maxVerticalAngle = 35;  
+    // int minVerticalAngle = -25; // long distance
+    // int maxVerticalAngle = 25;  
+
     for (verticalAngle = minVerticalAngle; verticalAngle <= maxVerticalAngle; verticalAngle++) {
       verticalServo.write(-verticalAngle + vOffset); // move motor to position, negative due to motor positioning
+      
       delay(10); // let the motor cook to completion
 
       while (!sensor.dataReady()) { // checks if sensor is NOT ready
@@ -152,6 +248,8 @@ void loop() {
       }
 
       int distance = sensor.read();
+      // Serial.print("distance: ");
+      // Serial.println(distance);
     
       int maxTOFDistance = 2000; // in front of TOF sensor in millimeters (mm)
       if (distance > 0 && distance < maxTOFDistance && !sensor.timeoutOccurred()) {
@@ -162,13 +260,33 @@ void loop() {
         // spherical coordinates (distance, hRad, vRad) -> cartesian coordinates (x,y,z)
         x = distance * cos(vRad) * cos(hRad)+ 26 * platformStep; //increase 26mm every stop
         y = distance * cos(vRad) * sin(hRad); 
-        z = distance * sin(vRad); 
+        z = distance * sin(vRad);
 
         // Print 3D point data
-        Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
+        char pointStr[32]; // Buffer for the combined string
+        sprintf(pointStr, "%.2f,%.2f,%.2f", x, y, z);
+        Serial.printf(pointStr);
+        Serial.printf("\n");
+        client.publish("Tree", pointStr);
+
+        // Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
+
+        // char xStr[10], yStr[10], zStr[10];
+        // dtostrf(x, 1, 2, xStr);
+        // dtostrf(y, 1, 2, yStr);
+        // dtostrf(z, 1, 2, zStr);
+        // client.publish("Tree", xStr);
+        // client.publish("Tree", yStr);
+        // client.publish("Tree", zStr);
       }
     }
     delay(100);
+
+    if (platformStep == 0 || platformStep == 15 || platformStep == 30) {
+      Serial.println("Triggering Pi capture!");
+      client.publish("Tree", "capture");
+      delay(100);  // wait for Pi to capture
+    }
   }
   direction *= -1;  // Alternate rotation direction after each pass
 
