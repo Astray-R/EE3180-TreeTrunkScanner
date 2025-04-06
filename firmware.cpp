@@ -107,8 +107,8 @@ void homeRotation() {
 }
 
 // Wi-Fi credentials for ToF ESP32
-const char* ssid = "ee014_esp32";
-const char* password = "abcd1234";
+const char* ssid = "Maximilian's Galaxy S22+";
+const char* password = "donttellu";
 const char* mqtt_server = "10.66.42.18"; // MQTT BROKER IP ADDRESS
 
 // Not sure what this does yet, will document later
