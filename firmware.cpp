@@ -1,8 +1,16 @@
 #include <Arduino.h>
+#include <math.h>
+
+// Header for VL53L1X ToF Sensor via I2C
 #include <Wire.h>
 #include <VL53L1X.h>
+
+// Header for Servo Motors
 #include <ESP32Servo.h>
-#include <math.h>
+
+// Header for MQTT
+#include <WiFi.h>
+#include <PubSubClient.h>
 
 // Pinout for ESP32 Dev Module
 #define SlidestepPin 18       // STEP pin for the slider motor
@@ -98,6 +106,18 @@ void homeRotation() {
   }
 }
 
+// Wi-Fi credentials for ToF ESP32
+const char* ssid = "ee014_tof";
+const char* password = "abcd1234";
+const char* mqtt_server = ""; // FILL IN WITH MQTT BROKER IP ADDRESS
+
+// Not sure what this does yet, will document later
+WifiClient espClient;
+PubSubClient client(espClient);
+long lastMsg = 0;
+char msg[50];
+int value = 0;
+
 void setup() {
   Serial.begin(9600);
 
@@ -119,10 +139,93 @@ void setup() {
   homeRotation();  // Home the rotation motor
   moveRotate(120); // Rotate to starting angle
 
+  // Initialize Wifi for MQTT
+  setup_wifi();
+  client.setServer(mqtt_server, 1883);
+  client.setCallback(callback);
+
   Serial.println("READY");
 }
 
+// copied over from https://randomnerdtutorials.com/esp32-mqtt-publish-subscribe-arduino-ide/
+
+void setup_wifi() {
+  delay(10);
+
+  // Start by connecting to a Wi-Fi Network
+  Serial.println();
+  Serial.print("Connecting to " + ssid);
+
+  WiFi.begin(ssid, password);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void callback(char* topic, byte* message, unsigned int length) {
+  Serial.print("Message arrived on topic: ");
+  Serial.print(topic);
+  Serial.print(". Message: ");
+  String messageTemp;
+  
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)message[i]);
+    messageTemp += (char)message[i];
+  }
+  Serial.println();
+
+  // Feel free to add more if statements to control more GPIOs with MQTT
+
+  // If a message is received on the topic esp32/output, you check if the message is either "on" or "off". 
+  // Changes the output state according to the message
+
+  // EE014: we don't use this LED pin, so this part does nothing
+  const int ledPin = 6;
+  if (String(topic) == "esp32/output") {
+    Serial.print("Changing output to ");
+    if(messageTemp == "on"){
+      Serial.println("on");
+      digitalWrite(ledPin, HIGH);
+    }
+    else if(messageTemp == "off"){
+      Serial.println("off");
+      digitalWrite(ledPin, LOW);
+    }
+  }
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (client.connect("ee014")) { // REPLACE WITH CLIENT NAME
+      Serial.println("connected");
+      // Subscribe
+      client.subscribe("esp32/output");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(client.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
+}
+
 void loop() {
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  
   int direction = 1;  // Variable to alternate direction of rotation, 1 is moving away from starting limit switch
 
   float x,y,z; // 3D space coordinates for raw data
@@ -165,7 +268,10 @@ void loop() {
         z = distance * sin(vRad); 
 
         // Print 3D point data
-        Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
+        Serial.println("%.2f,%.2f,%.2f", x, y, z);
+        client.publish("esp32/tof", x);
+        client.publish("esp32/tof", y);
+        client.publish("esp32/tof", z);
       }
     }
     delay(100);
