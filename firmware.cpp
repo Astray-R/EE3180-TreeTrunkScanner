@@ -123,7 +123,8 @@ void setup_wifi() {
 
   // Start by connecting to a Wi-Fi Network
   Serial.println();
-  Serial.print("Connecting to " + ssid);
+  Serial.print("Connecting to ");
+  Serial.print(ssid);
 
   WiFi.begin(ssid, password);
 
@@ -188,7 +189,11 @@ void setup() {
 
   homePlatform();  // Home the platform
   homeRotation();  // Home the rotation motor
-  moveRotate(120); // Rotate to starting angle
+
+  // Rotate to starting angle
+  // moveRotate(280); // Rotate to -15 degrees for long distance mode
+  moveRotate(80); // Rotate to -58 degree) for short distance mode
+
 
   // Initialize Wifi for MQTT
   setup_wifi();
@@ -219,15 +224,25 @@ void loop() {
     Serial.print("Current Step: ");
     Serial.println(platformStep);
 
-    moveRotate(4);  // rotate lazy susan by one step
+    // rotate lazy susan by one step
+    moveRotate(18);  // short distance
+    // moveRotate(5);  // long distance
     moveSlide(163); // move slider by one step
-    delay(100);
 
     // For each step, rotate sensor vertically from bottom to top to scan tree trunk surface
-    int minVerticalAngle = -35; // angle in degrees
+    
+    // angle in degrees
+    int minVerticalAngle = -35; // short distance
     int maxVerticalAngle = 35;  
+    // int minVerticalAngle = -25; // long distance
+    // int maxVerticalAngle = 25;  
+
     for (verticalAngle = minVerticalAngle; verticalAngle <= maxVerticalAngle; verticalAngle++) {
       verticalServo.write(-verticalAngle + vOffset); // move motor to position, negative due to motor positioning
+      
+      // Serial.print("verticalAngle: ");
+      // Serial.println(verticalAngle);
+      
       delay(10); // let the motor cook to completion
 
       while (!sensor.dataReady()) { // checks if sensor is NOT ready
@@ -236,6 +251,8 @@ void loop() {
       }
 
       int distance = sensor.read();
+      // Serial.print("distance: ");
+      // Serial.println(distance);
     
       int maxTOFDistance = 2000; // in front of TOF sensor in millimeters (mm)
       if (distance > 0 && distance < maxTOFDistance && !sensor.timeoutOccurred()) {
