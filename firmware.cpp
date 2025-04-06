@@ -107,7 +107,7 @@ void homeRotation() {
 }
 
 // Wi-Fi credentials for ToF ESP32
-const char* ssid = "ee014_tof";
+const char* ssid = "ee014_esp32";
 const char* password = "abcd1234";
 const char* mqtt_server = "10.66.42.18"; // MQTT BROKER IP ADDRESS
 
@@ -189,7 +189,7 @@ void reconnect() {
     if (client.connect("ee014")) { // REPLACE WITH CLIENT NAME
       Serial.println("connected");
       // Subscribe
-      client.subscribe("ee014/tof");
+      client.subscribe("Tree");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -248,9 +248,9 @@ void loop() {
 
         // Print 3D point data
         Serial.println("%.2f,%.2f,%.2f", x, y, z);
-        client.publish("ee014/tof", x);
-        client.publish("ee014/tof", y);
-        client.publish("ee014/tof", z);
+        client.publish("Tree", x);
+        client.publish("Tree", y);
+        client.publish("Tree", z);
       }
     }
     delay(100);
