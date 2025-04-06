@@ -109,7 +109,7 @@ void homeRotation() {
 // Wi-Fi credentials for ToF ESP32
 const char* ssid = "ee014_tof";
 const char* password = "abcd1234";
-const char* mqtt_server = ""; // FILL IN WITH MQTT BROKER IP ADDRESS
+const char* mqtt_server = "10.66.42.18"; // MQTT BROKER IP ADDRESS
 
 // Not sure what this does yet, will document later
 WifiClient espClient;
@@ -181,26 +181,6 @@ void callback(char* topic, byte* message, unsigned int length) {
   }
   Serial.println();
 
-  // Feel free to add more if statements to control more GPIOs with MQTT
-
-  // If a message is received on the topic esp32/output, you check if the message is either "on" or "off". 
-  // Changes the output state according to the message
-
-  // EE014: we don't use this LED pin, so this part does nothing
-  const int ledPin = 6;
-  if (String(topic) == "esp32/output") {
-    Serial.print("Changing output to ");
-    if(messageTemp == "on"){
-      Serial.println("on");
-      digitalWrite(ledPin, HIGH);
-    }
-    else if(messageTemp == "off"){
-      Serial.println("off");
-      digitalWrite(ledPin, LOW);
-    }
-  }
-}
-
 void reconnect() {
   // Loop until we're reconnected
   while (!client.connected()) {
@@ -209,13 +189,12 @@ void reconnect() {
     if (client.connect("ee014")) { // REPLACE WITH CLIENT NAME
       Serial.println("connected");
       // Subscribe
-      client.subscribe("esp32/output");
+      client.subscribe("ee014/tof");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
+      Serial.println(" try again in 3 seconds");
+      delay(3000); // Wait 3 seconds before retrying
     }
   }
 }
@@ -269,9 +248,9 @@ void loop() {
 
         // Print 3D point data
         Serial.println("%.2f,%.2f,%.2f", x, y, z);
-        client.publish("esp32/tof", x);
-        client.publish("esp32/tof", y);
-        client.publish("esp32/tof", z);
+        client.publish("ee014/tof", x);
+        client.publish("ee014/tof", y);
+        client.publish("ee014/tof", z);
       }
     }
     delay(100);
