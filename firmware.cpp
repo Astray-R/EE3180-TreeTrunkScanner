@@ -252,8 +252,9 @@ void loop() {
       // Serial.print("distance: ");
       // Serial.println(distance);
     
-      int maxTOFDistance = 2000; // in front of TOF sensor in millimeters (mm)
-      if (distance > 0 && distance < maxTOFDistance && !sensor.timeoutOccurred()) {
+      int maxTOFDistance = 1800; // in front of TOF sensor in millimeters (mm)
+      int minTOFDistance = 1200;
+      if (distance > minTOFDistance && distance < maxTOFDistance && !sensor.timeoutOccurred()) {
         // Calculate 3D coordinates based on angle and distance
         float hRad = (platformStep + 75) * PI / 180.0; // +75 degrees (HW: EXPLAIN WHY)
         float vRad = (verticalAngle) * PI / 180.0;
@@ -270,15 +271,7 @@ void loop() {
         Serial.printf("\n");
         client.publish("TreeTOF", pointStr);
 
-        // Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
-
-        // char xStr[10], yStr[10], zStr[10];
-        // dtostrf(x, 1, 2, xStr);
-        // dtostrf(y, 1, 2, yStr);
-        // dtostrf(z, 1, 2, zStr);
-        // client.publish("Tree", xStr);
-        // client.publish("Tree", yStr);
-        // client.publish("Tree", zStr);
+        Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
       }
     }
     delay(100);
