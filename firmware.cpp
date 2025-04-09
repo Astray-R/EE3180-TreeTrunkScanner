@@ -160,7 +160,8 @@ void reconnect() {
     if (client.connect("ee014")) { // REPLACE WITH CLIENT NAME
       Serial.println("connected");
       // Subscribe
-      client.subscribe("Tree");
+      client.subscribe("TreeTOF");
+      client.subscribe("TreeSlider");
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -267,7 +268,7 @@ void loop() {
         sprintf(pointStr, "%.2f,%.2f,%.2f", x, y, z);
         Serial.printf(pointStr);
         Serial.printf("\n");
-        client.publish("Tree", pointStr);
+        client.publish("TreeTOF", pointStr);
 
         // Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
 
@@ -284,7 +285,7 @@ void loop() {
 
     if (platformStep == 0 || platformStep == 15 || platformStep == 30) {
       Serial.println("Triggering Pi capture!");
-      client.publish("Tree", "capture");
+      client.publish("TreeSlider", "capture");
       delay(100);  // wait for Pi to capture
     }
   }
