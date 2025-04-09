@@ -254,15 +254,17 @@ void loop() {
     
       int maxTOFDistance = 1800; // in front of TOF sensor in millimeters (mm)
       int minTOFDistance = 1200;
+
       if (distance > minTOFDistance && distance < maxTOFDistance && !sensor.timeoutOccurred()) {
         // Calculate 3D coordinates based on angle and distance
-        float hRad = (platformStep + 75) * PI / 180.0; // +75 degrees (HW: EXPLAIN WHY)
+        // float hRad = (platformStep + 75) * PI / 180.0; // long distance
+        float hRad = (platformStep + 32) * PI / 180.0; // short distance
         float vRad = (verticalAngle) * PI / 180.0;
 
         // spherical coordinates (distance, hRad, vRad) -> cartesian coordinates (x,y,z)
-        x = distance * cos(vRad) * cos(hRad)+ 26 * platformStep; //increase 26mm every stop
+        x = distance * cos(vRad) * cos(hRad) + 26 * platformStep; //increase 26mm every stop
         y = distance * cos(vRad) * sin(hRad); 
-        z = distance * sin(vRad);
+        z = distance * sin(vRad) + 260;
 
         // Print 3D point data
         char pointStr[32]; // Buffer for the combined string
