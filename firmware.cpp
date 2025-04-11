@@ -193,8 +193,7 @@ void setup() {
 
   // Rotate to starting angle
   // moveRotate(280); // Rotate to -15 degrees for long distance mode
-  moveRotate(80); // Rotate to -58 degree) for short distance mode
-
+  moveRotate(80); // Rotate to -58 degrees for short distance mode
 
   // Initialize Wifi for MQTT
   setup_wifi();
@@ -252,13 +251,16 @@ void loop() {
       // Serial.print("distance: ");
       // Serial.println(distance);
     
-      int maxTOFDistance = 1800; // in front of TOF sensor in millimeters (mm)
-      int minTOFDistance = 1200;
+      // in front of TOF sensor in millimeters (mm)
+      int maxTOFDistance = 500; // short distance
+      int minTOFDistance = 0;
+      // int maxTOFDistance = 1650; // long distance
+      // int minTOFDistance = 1300;
 
       if (distance > minTOFDistance && distance < maxTOFDistance && !sensor.timeoutOccurred()) {
         // Calculate 3D coordinates based on angle and distance
-        // float hRad = (platformStep + 75) * PI / 180.0; // long distance
-        float hRad = (platformStep + 32) * PI / 180.0; // short distance
+        float hRad = (platformStep + 75) * PI / 180.0; // long distance
+        // float hRad = (platformStep + 32) * PI / 180.0; // short distance, PLS RECHECK
         float vRad = (verticalAngle) * PI / 180.0;
 
         // spherical coordinates (distance, hRad, vRad) -> cartesian coordinates (x,y,z)
@@ -269,16 +271,13 @@ void loop() {
         // Print 3D point data
         char pointStr[32]; // Buffer for the combined string
         sprintf(pointStr, "%.2f,%.2f,%.2f", x, y, z);
-        Serial.printf(pointStr);
-        Serial.printf("\n");
         client.publish("TreeTOF", pointStr);
-
         Serial.printf("%.2f,%.2f,%.2f\n", x, y, z);
       }
     }
     delay(100);
 
-    if (platformStep == 0 || platformStep == 15 || platformStep == 30) {
+    if (platformStep % 2 == 0) { // capture picture every other platformStep
       Serial.println("Triggering Pi capture!");
       client.publish("TreeSlider", "capture");
       delay(100);  // wait for Pi to capture
