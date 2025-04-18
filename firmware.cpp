@@ -263,8 +263,18 @@ void loop() {
         // float hRad = (platformStep + 32) * PI / 180.0; // short distance, PLS RECHECK
         float vRad = (verticalAngle) * PI / 180.0;
 
+        ////////////////////////////////////////////////////////////////////////////////////////////
+        // adjusted for tof sensor position on platform, i hope this works
+        float r = (float)distance;
+        r = (r + 90) * (r + 90) + 30 * 30;
+        r = sqrt(r);
+        float arctanAdjustment = 90 + r;
+        arctanAdjustment = 30 / arctanAdjustment;
+        hRad = hRad + atan(b/arctanAdjustment);
+        ////////////////////////////////////////////////////////////////////////////////////////////
+        
         // spherical coordinates (distance, hRad, vRad) -> cartesian coordinates (x,y,z)
-        x = distance * cos(vRad) * cos(hRad) + 26 * platformStep; //increase 26mm every stop
+        x = distance * cos(vRad) * cos(hRad) + 26 * platformStep; // increase 26mm every stop
         y = distance * cos(vRad) * sin(hRad); 
         z = distance * sin(vRad) + 260;
 
