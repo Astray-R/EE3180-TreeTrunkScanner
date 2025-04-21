@@ -270,13 +270,18 @@ void loop() {
         r = sqrt(r);
         float arctanAdjustment = 90 + r;
         arctanAdjustment = 30 / arctanAdjustment;
-        hRad = hRad + atan(b/arctanAdjustment);
+        arctanAdjustment = atan(arctanAdjustment);
+        hRad = hRad + arctanAdjustment;
+        x = r * cos(vRad) * cos(hRad) + 26 * platformStep; // increase 26mm every stop
+        y = r * cos(vRad) * sin(hRad); 
+        z = r * sin(vRad) + 260;
+
         ////////////////////////////////////////////////////////////////////////////////////////////
         
         // spherical coordinates (distance, hRad, vRad) -> cartesian coordinates (x,y,z)
-        x = distance * cos(vRad) * cos(hRad) + 26 * platformStep; // increase 26mm every stop
-        y = distance * cos(vRad) * sin(hRad); 
-        z = distance * sin(vRad) + 260;
+        // x = distance * cos(vRad) * cos(hRad) + 26 * platformStep; // increase 26mm every stop
+        // y = distance * cos(vRad) * sin(hRad); 
+        // z = distance * sin(vRad) + 260;
 
         // Print 3D point data
         char pointStr[32]; // Buffer for the combined string
